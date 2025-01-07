@@ -1,59 +1,64 @@
-let chatbotData = { questions: [] }; // Ensure a default structure
+// Function to fetch and process answers from text files dynamically
+async function getAnswerFromFiles(userQuestion) {
+    const chatContainer = document.getElementById("chat-container");
+    let answer = "Sorry, I don't know the answer to that question.";
 
-// Load Sinhala text data from JSON file
-async function loadChatbotData() {
-  try {
-    const response = await fetch('data.json');
-    chatbotData = await response.json();
+    // Get all text files in the "questions" folder (you need to make sure you have all your questions there)
+    const files = [
+        "questions/question1.txt",
+        "questions/question2.txt", // Add more files as you have
+    ];
 
-    if (!chatbotData.questions) {
-      chatbotData.questions = []; // Fallback to an empty array
-      console.warn('Warning: questions array is missing in chatbot data.');
+    // Iterate through each file to find a matching question
+    for (let file of files) {
+        try {
+            const response = await fetch(file);
+            if (response.ok) {
+                const fileContent = await response.text(); // Read the content of the file
+                const questionStart = fileContent.indexOf("Question: ");
+                const answerStart = fileContent.indexOf("Answer: ");
+                
+                if (questionStart !== -1 && answerStart !== -1) {
+                    // Extract question and answer from the file
+                    const question = fileContent.slice(questionStart + 10, answerStart).trim(); // Get the question part
+                    const answerFromFile = fileContent.slice(answerStart + 8).trim(); // Get the answer part
+                    
+                    // Check if the question matches
+                    if (userQuestion.trim() === question) {
+                        answer = answerFromFile;  // Set the answer if a match is found
+                        break;  // Exit the loop once the question is found
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching the file:", error);
+            answer = "Sorry, there was an error processing your request.";
+        }
     }
-  } catch (error) {
-    console.error('Failed to load chatbot data:', error);
-  }
+
+    return answer;
 }
 
-// Display messages in chatbox
-function displayMessage(sender, message) {
-  const chatBox = document.getElementById('chat-box');
-  chatBox.innerHTML += `<p><strong>${sender}:</strong> ${message}</p>`;
-  chatBox.scrollTop = chatBox.scrollHeight;
+// Function to handle sending messages
+async function sendMessage() {
+    const userMessage = document.getElementById("user-input").value;
+    const chatContainer = document.getElementById("chat-container");
+
+    // Display the user's message in the chat
+    const userMessageDiv = document.createElement("div");
+    userMessageDiv.classList.add("user-message");
+    userMessageDiv.textContent = userMessage;
+    chatContainer.appendChild(userMessageDiv);
+
+    // Get the response from the text files
+    const botResponse = await getAnswerFromFiles(userMessage);
+
+    // Display the bot's response
+    const botMessageDiv = document.createElement("div");
+    botMessageDiv.classList.add("bot-message");
+    botMessageDiv.textContent = botResponse;
+    chatContainer.appendChild(botMessageDiv);
+
+    // Clear the input field after sending the message
+    document.getElementById("user-input").value = "";
 }
-
-// Handle user input and respond
-function sendMessage() {
-  const userInput = document.getElementById('user-input');
-  const userMessage = userInput.value.trim();
-  if (userMessage === '') return;
-
-  displayMessage('ඔබ', userMessage);
-
-  if (!chatbotData || !chatbotData.questions) {
-    displayMessage('චැට්බොට්', 'දත්ත පූරණය වී නැත. කරුණාකර පිටුව නැවත පුරනය කරන්න.');
-    return;
-  }
-
-  // Normalize the user input (trim and remove extra spaces)
-  const normalizedUserMessage = normalizeString(userMessage);
-
-  // Search for an answer by normalizing both question and user message
-  const response = chatbotData.questions.find(q => normalizeString(q.question) === normalizedUserMessage);
-
-  if (response) {
-    displayMessage('චැට්බොට්', response.answer);
-  } else {
-    displayMessage('චැට්බොට්', 'කණගාටුයි, මට එම ප්‍රශ්නයට පිළිතුරු දිය නොහැක.');
-  }
-
-  userInput.value = '';
-}
-
-// Function to normalize a string (trim and remove extra spaces)
-function normalizeString(str) {
-  return str.trim().replace(/\s+/g, ' ').toLowerCase(); // Normalizing the string
-}
-
-// Initialize chatbot
-loadChatbotData();
